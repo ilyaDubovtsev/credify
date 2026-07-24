@@ -28,6 +28,12 @@ type Analysis = {
   reducePayment: Comparison
   recommendedStrategy: Strategy
 }
+type SafePlan = {
+  requiredReserve: number
+  recommendedImmediatePayment: number
+  savingsAfterPayment: number
+  comparison: Comparison
+}
 type FormState = {
   principal: number
   annualRate: number
@@ -35,6 +41,10 @@ type FormState = {
   startDate: string
   monthlyExtraPayment: number
   oneTimePayments: ExtraPayment[]
+  safeMode: boolean
+  currentSavings: number
+  monthlyEssentialExpenses: number
+  reserveMonths: number
 }
 
 const money = new Intl.NumberFormat('ru-RU', {
@@ -48,6 +58,10 @@ const defaultForm: FormState = {
   startDate: new Date().toISOString().slice(0, 10),
   monthlyExtraPayment: 10_000,
   oneTimePayments: [],
+  safeMode: false,
+  currentSavings: 500_000,
+  monthlyEssentialExpenses: 100_000,
+  reserveMonths: 3,
 }
 
 function loadForm(): FormState {
@@ -98,6 +112,7 @@ function DebtChart({ analysis }: { analysis: Analysis }) {
 export default function App() {
   const [form, setForm] = useState<FormState>(loadForm)
   const [result, setResult] = useState<Analysis | null>(null)
+  const [safePlan, setSafePlan] = useState<SafePlan | null>(null)
   const [activeStrategy, setActiveStrategy] = useState<Strategy>('reduceTerm')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -132,18 +147,38 @@ export default function App() {
     setLoading(true)
     setError('')
     try {
-      const response = await fetch('/api/loans/analyze', {
+      const loan = {
+        principal: form.principal,
+        annualRate: form.annualRate,
+        termMonths: form.termMonths,
+        startDate: form.startDate,
+        monthlyExtraPayment: form.monthlyExtraPayment,
+        strategy: 'reduceTerm',
+        oneTimePayments: form.oneTimePayments.map(({ date, amount }) => ({ date, amount })),
+      }
+      const analysisRequest = fetch('/api/loans/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          strategy: 'reduceTerm',
-          oneTimePayments: form.oneTimePayments.map(({ date, amount }) => ({ date, amount })),
-        }),
+        body: JSON.stringify(loan),
       })
-      if (!response.ok) throw new Error('Проверьте суммы и даты досрочных платежей.')
+      const safeRequest = form.safeMode
+        ? fetch('/api/loans/safe-plan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              loan,
+              currentSavings: form.currentSavings,
+              monthlyEssentialExpenses: form.monthlyEssentialExpenses,
+              reserveMonths: form.reserveMonths,
+            }),
+          })
+        : null
+      const [response, safeResponse] = await Promise.all([analysisRequest, safeRequest])
+      if (!response.ok || (safeResponse && !safeResponse.ok))
+        throw new Error('Проверьте суммы и даты в сценарии.')
       const analysis: Analysis = await response.json()
       setResult(analysis)
+      setSafePlan(safeResponse ? await safeResponse.json() : null)
       setActiveStrategy(analysis.recommendedStrategy)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Не удалось выполнить расчёт.')
@@ -202,6 +237,29 @@ export default function App() {
             </div>)}
         </div>
 
+        <div className={`wide safe-mode ${form.safeMode ? 'enabled' : ''}`}>
+          <label className="safe-toggle">
+            <input type="checkbox" checked={form.safeMode}
+              onChange={e => setForm(current => ({ ...current, safeMode: e.target.checked }))} />
+            <span><strong>Защитить финансовую подушку</strong>
+              <small>Рассчитаем, сколько можно внести сейчас без риска остаться без резерва</small></span>
+          </label>
+          {form.safeMode && <div className="safe-fields">
+            <label>Текущие накопления
+              <div className="input-unit"><input type="number" min="0" step="1000" value={form.currentSavings}
+                onChange={e => updateNumber('currentSavings', e.target.value)} /><span>₽</span></div>
+            </label>
+            <label>Обязательные расходы в месяц
+              <div className="input-unit"><input type="number" min="0" step="1000" value={form.monthlyEssentialExpenses}
+                onChange={e => updateNumber('monthlyEssentialExpenses', e.target.value)} /><span>₽</span></div>
+            </label>
+            <label>Размер подушки
+              <div className="input-unit"><input type="number" min="1" max="24" value={form.reserveMonths}
+                onChange={e => updateNumber('reserveMonths', e.target.value)} /><span>мес.</span></div>
+            </label>
+          </div>}
+        </div>
+
         <button className="wide primary" disabled={loading}>{loading ? 'Сравниваем…' : 'Найти лучший сценарий'}</button>
         {error && <p className="error wide">{error}</p>}
         <small className="autosave wide">Параметры автоматически сохраняются на этом устройстве</small>
@@ -209,6 +267,19 @@ export default function App() {
     </section>
 
     {result && selected && <section className="results">
+      {safePlan && <div className="safe-result">
+        <div>
+          <span>Безопасный платёж сейчас</span>
+          <strong>{money.format(safePlan.recommendedImmediatePayment)}</strong>
+          <p>{safePlan.recommendedImmediatePayment > 0
+            ? `После платежа останется подушка ${money.format(safePlan.savingsAfterPayment)}.`
+            : 'Свободных накоплений сверх выбранной подушки пока нет.'}</p>
+        </div>
+        <div className="safe-result-metrics">
+          <span>Целевая подушка <strong>{money.format(safePlan.requiredReserve)}</strong></span>
+          <span>Экономия с безопасным планом <strong>{money.format(safePlan.comparison.interestSavings)}</strong></span>
+        </div>
+      </div>}
       <div className="recommendation">
         <span>Наша рекомендация</span>
         <h2>Уменьшайте срок кредита</h2>

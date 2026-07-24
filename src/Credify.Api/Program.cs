@@ -64,6 +64,31 @@ app.MapPost("/api/loans/analyze", (LoanRequest request) =>
         RepaymentStrategy.ReduceTerm));
 });
 
+app.MapPost("/api/loans/safe-plan", (SafePlanRequest request) =>
+{
+    var errors = request.Validate();
+    if (errors.Count > 0)
+    {
+        return Results.ValidationProblem(errors);
+    }
+
+    var loan = request.Loan;
+    var scenario = new LoanScenario(
+        loan.Principal,
+        loan.AnnualRate,
+        loan.TermMonths,
+        loan.StartDate,
+        loan.MonthlyExtraPayment,
+        RepaymentStrategy.ReduceTerm,
+        loan.OneTimePayments);
+    var profile = new SafetyProfile(
+        request.CurrentSavings,
+        request.MonthlyEssentialExpenses,
+        request.ReserveMonths);
+
+    return Results.Ok(SafePlanCalculator.Build(scenario, profile));
+});
+
 app.Run();
 
 public partial class Program;

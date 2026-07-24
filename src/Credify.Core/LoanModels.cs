@@ -37,3 +37,14 @@ public sealed record LoanComparison(
     LoanSchedule Optimized,
     decimal InterestSavings,
     int MonthsSaved);
+
+public sealed record SafetyProfile(
+    decimal CurrentSavings,
+    decimal MonthlyEssentialExpenses,
+    int ReserveMonths);
+
+public sealed record SafeRepaymentPlan(
+    decimal RequiredReserve,
+    decimal RecommendedImmediatePayment,
+    decimal SavingsAfterPayment,
+    LoanComparison Comparison);

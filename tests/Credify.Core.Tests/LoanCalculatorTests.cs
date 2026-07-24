@@ -104,4 +104,36 @@ public class LoanCalculatorTests
 
         Assert.Throws<ArgumentOutOfRangeException>(() => LoanCalculator.BuildSchedule(scenario));
     }
+
+    [Fact]
+    public void SafePlan_UsesOnlySavingsAboveReserve()
+    {
+        var scenario = new LoanScenario(
+            1_000_000m, 18m, 60, new DateOnly(2026, 8, 1), 10_000m,
+            RepaymentStrategy.ReduceTerm);
+
+        var plan = SafePlanCalculator.Build(
+            scenario,
+            new SafetyProfile(500_000m, 100_000m, 3));
+
+        Assert.Equal(300_000m, plan.RequiredReserve);
+        Assert.Equal(200_000m, plan.RecommendedImmediatePayment);
+        Assert.Equal(300_000m, plan.SavingsAfterPayment);
+        Assert.True(plan.Comparison.InterestSavings > 0);
+    }
+
+    [Fact]
+    public void SafePlan_DoesNotSpendSavingsBelowReserve()
+    {
+        var scenario = new LoanScenario(
+            1_000_000m, 18m, 60, new DateOnly(2026, 8, 1), 0m,
+            RepaymentStrategy.ReduceTerm);
+
+        var plan = SafePlanCalculator.Build(
+            scenario,
+            new SafetyProfile(200_000m, 100_000m, 3));
+
+        Assert.Equal(0m, plan.RecommendedImmediatePayment);
+        Assert.Equal(200_000m, plan.SavingsAfterPayment);
+    }
 }
