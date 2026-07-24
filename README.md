@@ -48,6 +48,23 @@ npm run dev
 dotnet test Credify.sln
 ```
 
+## Production
+
+Production-конфигурация запускает Caddy с автоматическим HTTPS и не публикует
+frontend или API напрямую:
+
+```bash
+docker compose -f compose.prod.yaml up -d --build
+```
+
+Приложение доступно по адресу <https://credify.dubovtsev.com>. Сертификаты
+хранятся в Docker volume `caddy_data` и продлеваются автоматически.
+
+На production-сервере systemd-таймер `credify-deploy.timer` проверяет ветку
+`main` каждые пять минут и разворачивает новый commit. Таймер
+`credify-health.timer` проверяет публичный health endpoint каждые две минуты и
+перезапускает контейнеры при сбое.
+
 ## Допущения MVP
 
 - кредит аннуитетный, ставка фиксированная;

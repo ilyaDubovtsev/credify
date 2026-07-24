@@ -1,0 +1,12 @@
+[Unit]
+Description=Check Credify health every two minutes
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=2min
+RandomizedDelaySec=15s
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+

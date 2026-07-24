@@ -1,0 +1,12 @@
+[Unit]
+Description=Deploy the latest Credify main branch
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=dubovtsev
+Environment=CREDIFY_APP_DIR=/home/dubovtsev/apps/credify
+ExecStart=/home/dubovtsev/apps/credify/scripts/deploy.sh
+
