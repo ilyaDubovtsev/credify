@@ -1,5 +1,12 @@
 import { FormEvent, useEffect, useState } from 'react'
 
+declare global {
+  interface Window {
+    ym?: ((...args: unknown[]) => void) & { a?: unknown[]; l?: number }
+    dataLayer?: unknown[]
+  }
+}
+
 type Strategy = 'reduceTerm' | 'reducePayment'
 type ExtraPayment = { id: string; date: string; amount: number }
 type Payment = {
@@ -51,6 +58,7 @@ const money = new Intl.NumberFormat('ru-RU', {
   style: 'currency', currency: 'RUB', maximumFractionDigits: 0,
 })
 const STORAGE_KEY = 'credify-scenario-v2'
+const ANALYTICS_CONSENT_KEY = 'credify-analytics-consent'
 const defaultForm: FormState = {
   principal: 1_000_000,
   annualRate: 18,
@@ -71,6 +79,34 @@ function loadForm(): FormState {
   } catch {
     return defaultForm
   }
+}
+
+function enableMetrika() {
+  if (document.querySelector('script[data-yandex-metrika]')) return
+
+  window.ym = window.ym || function (...args: unknown[]) {
+    window.ym?.a?.push(args)
+  }
+  window.ym.a = window.ym.a || []
+  window.ym.l = Date.now()
+  window.dataLayer = window.dataLayer || []
+
+  const script = document.createElement('script')
+  script.async = true
+  script.dataset.yandexMetrika = 'true'
+  script.src = 'https://mc.yandex.ru/metrika/tag.js?id=111013567'
+  document.head.appendChild(script)
+
+  window.ym(111013567, 'init', {
+    ssr: true,
+    webvisor: true,
+    clickmap: true,
+    ecommerce: 'dataLayer',
+    referrer: document.referrer,
+    url: location.href,
+    accurateTrackBounce: true,
+    trackLinks: true,
+  })
 }
 
 function DebtChart({ analysis }: { analysis: Analysis }) {
@@ -116,10 +152,22 @@ export default function App() {
   const [activeStrategy, setActiveStrategy] = useState<Strategy>('reduceTerm')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [analyticsConsent, setAnalyticsConsent] = useState<string | null>(
+    () => localStorage.getItem(ANALYTICS_CONSENT_KEY),
+  )
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(form))
   }, [form])
+
+  useEffect(() => {
+    if (analyticsConsent === 'accepted') enableMetrika()
+  }, [analyticsConsent])
+
+  const chooseAnalytics = (choice: 'accepted' | 'rejected') => {
+    localStorage.setItem(ANALYTICS_CONSENT_KEY, choice)
+    setAnalyticsConsent(choice)
+  }
 
   const updateNumber = (name: keyof FormState, value: string) =>
     setForm(current => ({ ...current, [name]: Number(value) }))
@@ -221,23 +269,23 @@ export default function App() {
       </div>
       <form onSubmit={calculate}>
         <label>Остаток кредита
-          <div className="input-unit"><input type="number" min="1" value={form.principal}
+          <div className="input-unit"><input className="ym-disable-keys" type="number" min="1" value={form.principal}
             onChange={e => updateNumber('principal', e.target.value)} /><span>₽</span></div>
         </label>
         <label>Процентная ставка
-          <div className="input-unit"><input type="number" min="0" max="100" step="0.01" value={form.annualRate}
+          <div className="input-unit"><input className="ym-disable-keys" type="number" min="0" max="100" step="0.01" value={form.annualRate}
             onChange={e => updateNumber('annualRate', e.target.value)} /><span>%</span></div>
         </label>
         <label>Оставшийся срок
-          <div className="input-unit"><input type="number" min="1" max="600" value={form.termMonths}
+          <div className="input-unit"><input className="ym-disable-keys" type="number" min="1" max="600" value={form.termMonths}
             onChange={e => updateNumber('termMonths', e.target.value)} /><span>мес.</span></div>
         </label>
         <label>Первый платёж
-          <input type="date" value={form.startDate}
+          <input className="ym-disable-keys" type="date" value={form.startDate}
             onChange={e => setForm(current => ({ ...current, startDate: e.target.value }))} />
         </label>
         <label className="wide">Могу доплачивать каждый месяц
-          <div className="input-unit"><input type="number" min="0" step="100" value={form.monthlyExtraPayment}
+          <div className="input-unit"><input className="ym-disable-keys" type="number" min="0" step="100" value={form.monthlyExtraPayment}
             onChange={e => updateNumber('monthlyExtraPayment', e.target.value)} /><span>₽</span></div>
         </label>
 
@@ -249,9 +297,9 @@ export default function App() {
           {form.oneTimePayments.map((payment, index) =>
             <div className="extra-row" key={payment.id}>
               <span>#{index + 1}</span>
-              <label>Дата<input type="date" value={payment.date}
+              <label>Дата<input className="ym-disable-keys" type="date" value={payment.date}
                 onChange={e => updateExtra(payment.id, 'date', e.target.value)} /></label>
-              <label>Сумма<div className="input-unit"><input type="number" min="1000" step="1000" value={payment.amount}
+              <label>Сумма<div className="input-unit"><input className="ym-disable-keys" type="number" min="1000" step="1000" value={payment.amount}
                 onChange={e => updateExtra(payment.id, 'amount', e.target.value)} /><span>₽</span></div></label>
               <button type="button" className="remove" aria-label={`Удалить платёж ${index + 1}`}
                 onClick={() => setForm(current => ({ ...current,
@@ -261,22 +309,22 @@ export default function App() {
 
         <div className={`wide safe-mode ${form.safeMode ? 'enabled' : ''}`}>
           <label className="safe-toggle">
-            <input type="checkbox" checked={form.safeMode}
+            <input className="ym-disable-keys" type="checkbox" checked={form.safeMode}
               onChange={e => setForm(current => ({ ...current, safeMode: e.target.checked }))} />
             <span><strong>Защитить финансовую подушку</strong>
               <small>Рассчитаем, сколько можно внести сейчас без риска остаться без резерва</small></span>
           </label>
           {form.safeMode && <div className="safe-fields">
             <label>Текущие накопления
-              <div className="input-unit"><input type="number" min="0" step="1000" value={form.currentSavings}
+              <div className="input-unit"><input className="ym-disable-keys" type="number" min="0" step="1000" value={form.currentSavings}
                 onChange={e => updateNumber('currentSavings', e.target.value)} /><span>₽</span></div>
             </label>
             <label>Обязательные расходы в месяц
-              <div className="input-unit"><input type="number" min="0" step="1000" value={form.monthlyEssentialExpenses}
+              <div className="input-unit"><input className="ym-disable-keys" type="number" min="0" step="1000" value={form.monthlyEssentialExpenses}
                 onChange={e => updateNumber('monthlyEssentialExpenses', e.target.value)} /><span>₽</span></div>
             </label>
             <label>Размер подушки
-              <div className="input-unit"><input type="number" min="1" max="24" value={form.reserveMonths}
+              <div className="input-unit"><input className="ym-disable-keys" type="number" min="1" max="24" value={form.reserveMonths}
                 onChange={e => updateNumber('reserveMonths', e.target.value)} /><span>мес.</span></div>
             </label>
           </div>}
@@ -349,7 +397,25 @@ export default function App() {
 
     <footer>
       <span className="footer-brand">credify/кредифай</span>
-      <p>Расчёт ориентировочный и не учитывает правила конкретного банка, комиссии и страховки.</p>
+      <div className="footer-meta">
+        <p>Расчёт ориентировочный и не учитывает правила конкретного банка, комиссии и страховки.</p>
+        <a href="/privacy.html">Конфиденциальность</a>
+      </div>
     </footer>
+    {analyticsConsent === null && <aside className="cookie-banner" aria-label="Настройки аналитики">
+      <div>
+        <strong>Можно собирать анонимную статистику?</strong>
+        <p>Яндекс Метрика использует cookie, чтобы помочь нам улучшать интерфейс.
+          Финансовые поля скрыты от записи. <a href="/privacy.html">Подробнее</a></p>
+      </div>
+      <div className="cookie-actions">
+        <button type="button" className="cookie-decline" onClick={() => chooseAnalytics('rejected')}>
+          Только необходимые
+        </button>
+        <button type="button" className="cookie-accept" onClick={() => chooseAnalytics('accepted')}>
+          Разрешить аналитику
+        </button>
+      </div>
+    </aside>}
   </main>
 }

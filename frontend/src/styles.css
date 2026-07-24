@@ -211,7 +211,18 @@ th:first-child, td:first-child { text-align: left; }
 
 footer { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 30px max(24px, calc((100vw - 1180px) / 2)); background: var(--ink); color: #7e8981; }
 .footer-brand { color: white; }
+.footer-meta { display: flex; align-items: center; justify-content: flex-end; gap: 24px; }
 footer p { max-width: 650px; margin: 0; font-size: 11px; text-align: right; }
+footer a { color: var(--lime); font-size: 11px; font-weight: 700; text-decoration: none; white-space: nowrap; }
+footer a:hover { text-decoration: underline; }
+.cookie-banner { position: fixed; z-index: 50; right: 22px; bottom: 22px; display: grid; gap: 18px; width: min(520px, calc(100vw - 36px)); padding: 22px; border: 1px solid #ffffff1c; border-radius: 20px; background: #171b18f5; box-shadow: 0 25px 80px #0006; color: white; backdrop-filter: blur(20px); }
+.cookie-banner strong { display: block; margin-bottom: 6px; font-size: 15px; }
+.cookie-banner p { margin: 0; color: #aeb7b0; font-size: 12px; line-height: 1.6; }
+.cookie-banner a { color: var(--lime); }
+.cookie-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.cookie-actions button { padding: 11px 14px; border-radius: 999px; font-size: 11px; font-weight: 800; }
+.cookie-decline { background: #ffffff10; color: #d6dcd7; }
+.cookie-accept { background: var(--lime); color: #162011; }
 
 @media (max-width: 900px) {
   .hero { min-height: auto; }
@@ -241,6 +252,10 @@ footer p { max-width: 650px; margin: 0; font-size: 11px; text-align: right; }
   .section-heading { align-items: start; flex-direction: column; }
   .debt-section { padding: 22px 16px; }
   .debt-chart { gap: 3px; height: 190px; }
-  footer { align-items: flex-start; flex-direction: column; }
+  footer, .footer-meta { align-items: flex-start; flex-direction: column; }
+  .footer-meta { gap: 12px; }
   footer p { text-align: left; }
+  .cookie-banner { right: 18px; bottom: 18px; }
+  .cookie-actions { align-items: stretch; flex-direction: column-reverse; }
+  .cookie-actions button { width: 100%; }
 }
