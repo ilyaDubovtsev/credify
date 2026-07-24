@@ -6,13 +6,16 @@ public enum RepaymentStrategy
     ReducePayment
 }
 
+public sealed record ExtraPayment(DateOnly Date, decimal Amount);
+
 public sealed record LoanScenario(
     decimal Principal,
     decimal AnnualRate,
     int TermMonths,
     DateOnly StartDate,
     decimal MonthlyExtraPayment,
-    RepaymentStrategy Strategy);
+    RepaymentStrategy Strategy,
+    IReadOnlyList<ExtraPayment>? OneTimePayments = null);
 
 public sealed record PaymentRow(
     int Number,
@@ -34,4 +37,3 @@ public sealed record LoanComparison(
     LoanSchedule Optimized,
     decimal InterestSavings,
     int MonthsSaved);
-

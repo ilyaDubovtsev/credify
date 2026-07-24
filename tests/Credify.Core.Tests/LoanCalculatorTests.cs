@@ -54,4 +54,54 @@ public class LoanCalculatorTests
 
         Assert.Throws<ArgumentOutOfRangeException>(() => LoanCalculator.BuildSchedule(scenario));
     }
+
+    [Fact]
+    public void OneTimePayment_IsAppliedInMatchingMonth()
+    {
+        var schedule = LoanCalculator.BuildSchedule(new LoanScenario(
+            1_000_000m, 18m, 60, new DateOnly(2026, 8, 1), 0m,
+            RepaymentStrategy.ReduceTerm,
+            [new ExtraPayment(new DateOnly(2026, 10, 15), 100_000m)]));
+
+        Assert.Equal(0m, schedule.Payments[1].ExtraPayment);
+        Assert.Equal(100_000m, schedule.Payments[2].ExtraPayment);
+        Assert.True(schedule.Payments.Count < 60);
+    }
+
+    [Fact]
+    public void ComparisonBaseline_ExcludesAllExtraPayments()
+    {
+        var result = LoanCalculator.Compare(new LoanScenario(
+            1_000_000m, 18m, 60, new DateOnly(2026, 8, 1), 10_000m,
+            RepaymentStrategy.ReduceTerm,
+            [new ExtraPayment(new DateOnly(2027, 2, 15), 100_000m)]));
+
+        Assert.All(result.Baseline.Payments, payment => Assert.Equal(0m, payment.ExtraPayment));
+        Assert.True(result.Baseline.TotalInterest > result.Optimized.TotalInterest);
+    }
+
+    [Fact]
+    public void MultipleOneTimePaymentsInSameMonth_AreCombined()
+    {
+        var schedule = LoanCalculator.BuildSchedule(new LoanScenario(
+            500_000m, 12m, 36, new DateOnly(2026, 8, 1), 1_000m,
+            RepaymentStrategy.ReduceTerm,
+            [
+                new ExtraPayment(new DateOnly(2026, 9, 5), 20_000m),
+                new ExtraPayment(new DateOnly(2026, 9, 20), 30_000m)
+            ]));
+
+        Assert.Equal(51_000m, schedule.Payments[1].ExtraPayment);
+    }
+
+    [Fact]
+    public void OneTimePaymentOutsideLoanTerm_IsRejected()
+    {
+        var scenario = new LoanScenario(
+            500_000m, 12m, 12, new DateOnly(2026, 8, 1), 0m,
+            RepaymentStrategy.ReduceTerm,
+            [new ExtraPayment(new DateOnly(2027, 8, 1), 10_000m)]);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => LoanCalculator.BuildSchedule(scenario));
+    }
 }

@@ -8,7 +8,8 @@ public sealed record LoanRequest(
     int TermMonths,
     DateOnly StartDate,
     decimal MonthlyExtraPayment,
-    RepaymentStrategy Strategy)
+    RepaymentStrategy Strategy,
+    IReadOnlyList<ExtraPayment>? OneTimePayments = null)
 {
     public Dictionary<string, string[]> Validate()
     {
@@ -22,8 +23,13 @@ public sealed record LoanRequest(
             errors[nameof(TermMonths)] = ["Срок должен быть от 1 до 600 месяцев."];
         if (MonthlyExtraPayment < 0)
             errors[nameof(MonthlyExtraPayment)] = ["Досрочный платёж не может быть отрицательным."];
+        if (OneTimePayments?.Any(payment => payment.Amount <= 0) == true)
+            errors[nameof(OneTimePayments)] = ["Сумма каждого разового платежа должна быть больше нуля."];
+
+        var lastPaymentDate = StartDate.AddMonths(Math.Max(0, TermMonths - 1));
+        if (OneTimePayments?.Any(payment => payment.Date < StartDate || payment.Date > lastPaymentDate) == true)
+            errors[nameof(OneTimePayments)] = ["Дата разового платежа должна попадать в срок кредита."];
 
         return errors;
     }
 }
-

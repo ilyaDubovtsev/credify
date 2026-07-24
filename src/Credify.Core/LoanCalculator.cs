@@ -11,7 +11,8 @@ public static class LoanCalculator
         var baseline = BuildSchedule(scenario with
         {
             MonthlyExtraPayment = 0,
-            Strategy = RepaymentStrategy.ReduceTerm
+            Strategy = RepaymentStrategy.ReduceTerm,
+            OneTimePayments = []
         });
         var optimized = BuildSchedule(scenario);
 
@@ -34,20 +35,26 @@ public static class LoanCalculator
         var initialPayment = regularPayment;
         var balance = scenario.Principal;
         var payments = new List<PaymentRow>();
+        var oneTimePayments = (scenario.OneTimePayments ?? [])
+            .GroupBy(payment => (payment.Date.Year, payment.Date.Month))
+            .ToDictionary(group => group.Key, group => group.Sum(payment => payment.Amount));
 
         for (var month = 1; month <= scenario.TermMonths && balance > MoneyTolerance; month++)
         {
+            var paymentDate = scenario.StartDate.AddMonths(month - 1);
             var interest = RoundMoney(balance * monthlyRate);
             var regularPrincipal = Math.Min(balance, Math.Max(0, regularPayment - interest));
             var actualRegularPayment = RoundMoney(interest + regularPrincipal);
             balance = RoundMoney(balance - regularPrincipal);
 
-            var extra = Math.Min(balance, scenario.MonthlyExtraPayment);
+            oneTimePayments.TryGetValue((paymentDate.Year, paymentDate.Month), out var oneTimeExtra);
+            var plannedExtra = scenario.MonthlyExtraPayment + oneTimeExtra;
+            var extra = Math.Min(balance, plannedExtra);
             balance = RoundMoney(balance - extra);
 
             payments.Add(new PaymentRow(
                 month,
-                scenario.StartDate.AddMonths(month - 1),
+                paymentDate,
                 actualRegularPayment,
                 extra,
                 interest,
@@ -60,8 +67,7 @@ public static class LoanCalculator
                 break;
             }
 
-            if (scenario.Strategy == RepaymentStrategy.ReducePayment &&
-                scenario.MonthlyExtraPayment > 0)
+            if (scenario.Strategy == RepaymentStrategy.ReducePayment && extra > 0)
             {
                 regularPayment = CalculateAnnuityPayment(
                     balance,
@@ -105,6 +111,15 @@ public static class LoanCalculator
             throw new ArgumentOutOfRangeException(nameof(scenario.TermMonths), "Срок должен быть от 1 до 600 месяцев.");
         if (scenario.MonthlyExtraPayment < 0)
             throw new ArgumentOutOfRangeException(nameof(scenario.MonthlyExtraPayment), "Досрочный платёж не может быть отрицательным.");
+
+        var lastPaymentDate = scenario.StartDate.AddMonths(scenario.TermMonths - 1);
+        foreach (var payment in scenario.OneTimePayments ?? [])
+        {
+            if (payment.Amount <= 0)
+                throw new ArgumentOutOfRangeException(nameof(scenario.OneTimePayments), "Разовый платёж должен быть больше нуля.");
+            if (payment.Date < scenario.StartDate || payment.Date > lastPaymentDate)
+                throw new ArgumentOutOfRangeException(nameof(scenario.OneTimePayments), "Дата разового платежа должна попадать в срок кредита.");
+        }
     }
 
     private static decimal RoundMoney(decimal value) =>

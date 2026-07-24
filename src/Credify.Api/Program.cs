@@ -30,9 +30,38 @@ app.MapPost("/api/loans/compare", (LoanRequest request) =>
         request.TermMonths,
         request.StartDate,
         request.MonthlyExtraPayment,
-        request.Strategy);
+        request.Strategy,
+        request.OneTimePayments);
 
     return Results.Ok(LoanCalculator.Compare(scenario));
+});
+
+app.MapPost("/api/loans/analyze", (LoanRequest request) =>
+{
+    var errors = request.Validate();
+    if (errors.Count > 0)
+    {
+        return Results.ValidationProblem(errors);
+    }
+
+    var scenario = new LoanScenario(
+        request.Principal,
+        request.AnnualRate,
+        request.TermMonths,
+        request.StartDate,
+        request.MonthlyExtraPayment,
+        RepaymentStrategy.ReduceTerm,
+        request.OneTimePayments);
+
+    var reduceTerm = LoanCalculator.Compare(scenario);
+    var reducePayment = LoanCalculator.Compare(
+        scenario with { Strategy = RepaymentStrategy.ReducePayment });
+
+    return Results.Ok(new LoanAnalysisResponse(
+        reduceTerm.Baseline,
+        reduceTerm,
+        reducePayment,
+        RepaymentStrategy.ReduceTerm));
 });
 
 app.Run();
