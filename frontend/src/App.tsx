@@ -190,13 +190,35 @@ export default function App() {
   const selected = result?.[activeStrategy]
 
   return <main>
-    <header>
-      <span className="brand">CREDIFY</span>
-      <h1>Погасите кредит раньше.<br />Без лишнего напряжения.</h1>
-      <p>Добавьте регулярные и разовые платежи — мы сравним стратегии и покажем самую выгодную.</p>
+    <header className="hero">
+      <nav className="topbar">
+        <a className="brand" href="/" aria-label="credify/кредифай">credify<span>/кредифай</span></a>
+        <span className="nav-note"><i /> умный план погашения</span>
+      </nav>
+      <div className="hero-grid">
+        <div className="hero-copy">
+          <span className="eyebrow">Переплачивать — необязательно</span>
+          <h1>Закройте кредит<br /><em>раньше срока.</em></h1>
+          <p>Соберём персональный план досрочных платежей, сохраним финансовую подушку и покажем вашу выгоду в рублях.</p>
+          <a className="hero-cta" href="#calculator">Рассчитать выгоду <span>↓</span></a>
+        </div>
+        <div className="hero-orbit" aria-hidden="true">
+          <div className="orbit-card orbit-main">
+            <span>Потенциальная экономия</span>
+            <strong>− 284 600 ₽</strong>
+            <div className="mini-bars"><i /><i /><i /><i /><i /><i /><i /></div>
+          </div>
+          <div className="orbit-card orbit-time"><span>Срок кредита</span><strong>− 19 мес.</strong></div>
+          <div className="orbit-pill">Безопасно для подушки</div>
+        </div>
+      </div>
     </header>
 
-    <section className="calculator">
+    <section className="calculator" id="calculator">
+      <div className="block-heading">
+        <span>01 — параметры</span>
+        <div><h2>Расскажите о кредите</h2><p>Все данные остаются только на вашем устройстве</p></div>
+      </div>
       <form onSubmit={calculate}>
         <label>Остаток кредита
           <div className="input-unit"><input type="number" min="1" value={form.principal}
@@ -325,6 +347,9 @@ export default function App() {
       </details>
     </section>}
 
-    <footer>Расчёт ориентировочный и не учитывает правила конкретного банка, комиссии и страховки.</footer>
+    <footer>
+      <span className="footer-brand">credify/кредифай</span>
+      <p>Расчёт ориентировочный и не учитывает правила конкретного банка, комиссии и страховки.</p>
+    </footer>
   </main>
 }
